@@ -1,0 +1,66 @@
+# Locale and language settings
+d-i debian-installer/locale string en_US
+d-i console-keymaps-at/keymap select us
+d-i keyboard-configuration/xkb-keymap select us
+
+# Network configuration
+d-i netcfg/get_hostname string docker-host
+d-i netcfg/get_domain string unassigned-domain
+d-i netcfg/choose_interface select auto
+
+# Clock and time zone
+d-i time/zone string UTC
+d-i clock-setup/utc boolean true
+
+# Partitioning - use entire disk with GPT partitioning
+d-i partman-auto/method string regular
+d-i partman-auto/disk string /dev/sda
+d-i partman-auto/choose_recipe select atomic
+d-i partman-partitioning/confirm_write boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# User setup
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string Docker Admin
+d-i passwd/username string admin
+d-i passwd/user-password password admin
+d-i passwd/user-password-again password admin
+d-i user-setup/allow-password-weak boolean true
+d-i user-setup/encrypt-home boolean false
+
+# Mirror settings
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+
+# Package selection
+d-i pkgsel/include string openssh-server sudo
+d-i pkgsel/install-language-support boolean false
+d-i pkgsel/update-policy select none
+d-i pkgsel/upgrade select full-upgrade
+
+# Tasksel: minimal system with SSH server
+tasksel tasksel/first multiselect standard, ssh-server
+
+# Grub boot loader
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean false
+d-i grub-installer/bootdev string default
+
+# Late command: Install Docker and dependencies
+d-i preseed/late_command string \
+    in-target apt-get update; \
+    in-target apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release; \
+    in-target mkdir -p /etc/apt/keyrings; \
+    in-target curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg; \
+    in-target chmod a+r /etc/apt/keyrings/docker.gpg; \
+    in-target echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null; \
+    in-target apt-get update; \
+    in-target apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; \
+    in-target systemctl enable docker; \
+    in-target usermod -aG docker admin; \
+    in-target systemctl restart docker; \
+    in-target echo "Docker installation completed" > /root/docker-install.log
